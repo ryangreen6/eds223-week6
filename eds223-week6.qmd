@@ -1,0 +1,180 @@
+---
+title: "eds223-week6"
+format: html
+editor: visual
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r}
+library(sf)
+library(tmap)
+library(terra)
+library(tidyverse)
+library(spDataLarge)
+```
+
+Rasterization: The process of representing vector objects as raster objects.
+To rasterize, we will use the rasterize() function in Terra. 
+
+Working with Zion data:
+
+```{r}
+boundary <- read_sf(system.file("vector/zion.gpkg", package = "spDataLarge"))
+
+elevation <- terra::rast(system.file("raster/srtm.tif", package = "spDataLarge"))
+
+if (crs(elevation) == crs(boundary)) {
+  print("CRS Match")
+} else {
+  boundary <- st_transform(boundary, st_crs(elevation))
+  message(print(paste("CRS Transformed")))
+}
+```
+
+```{r}
+if(sf::st_geometry_type(boundary) == "POLYGON") {
+  print("Polygon")
+} else {
+  print("Not Polygon Data")
+}
+```
+
+```{r}
+# saving our boundary polygon in a new variable for safety
+park_polygon <- boundary
+
+# create a new boundary, but a line object
+park_border <- boundary %>%
+  sf::st_cast(., "MULTILINESTRING")
+
+```
+
+```{r}
+# showing our polygon object
+tm_shape(park_polygon) +
+  tm_polygons()
+```
+
+```{r}
+# showing our line object
+tm_shape(park_border) +
+  tm_lines()
+```
+
+Let's rasterize! :p
+
+```{r}
+polygon_raster <- terra::rasterize(park_polygon, elevation)
+border_raster <- terra::rasterize(park_border, elevation)
+
+tm_shape(polygon_raster) +
+  tm_raster()
+
+tm_shape(border_raster) +
+  tm_raster()
+```
+
+```{r}
+template_raster_low <- terra::rast(ext(park_polygon),
+                                   resolution = 0.05,
+                                   crs = st_crs(park_polygon))
+
+template_raster_high <- terra::rast(ext(park_polygon),
+                                   resolution = 0.01,
+                                   crs = st_crs(park_polygon))
+```
+
+```{r}
+polygon_raster_low <- rasterize(park_polygon,
+                                template_raster_low)
+
+polygon_raster_high <- rasterize(park_polygon,
+                                template_raster_high)
+```
+
+```{r}
+tm_shape(polygon_raster_low) +
+  tm_raster()
+```
+
+```{r}
+tm_shape(polygon_raster_high) +
+  tm_raster()
+```
+
+```{r}
+cycle_hire_osm <- spData::cycle_hire_osm
+
+cycle_hire_osm_projected <- st_transform(cycle_hire_osm, "EPSG:27700")
+
+template_raster <- terra::rast(ext(cycle_hire_osm_projected),
+                               resolution = 1000,
+                               crs = crs(cycle_hire_osm_projected))
+
+
+tm_shape(cycle_hire_osm_projected) +
+  tm_symbols()
+```
+
+```{r}
+# presence or absence of cycle hire points
+ch_raster1 <- terra::rasterize(cycle_hire_osm_projected,
+                               template_raster)
+
+tm_shape(ch_raster1) +
+  tm_raster()
+
+ch_raster2 <- terra::rasterize(cycle_hire_osm_projected,
+                               template_raster,
+                               fun = "length")
+tm_shape(ch_raster2) +
+  tm_raster(title = "Number of cycle hire points")
+
+ch_raster3 <- terra::rasterize(cycle_hire_osm_projected,
+                               template_raster,
+                               field = "capacity",
+                               fun = sum,
+                               na.rm = TRUE)
+tm_shape(ch_raster3) +
+  tm_raster(title = "Total capacity")
+```
+
+Now some false-color imagery stuff!
+
+```{r}
+library(stars)
+L7 <- terra::rast(system.file("tif/L7_ETMs.tif", package = "stars"))
+
+tm_shape(L7) +
+  tm_rgb(r = 3, g = 2, b = 1)
+
+tm_shape(L7) +
+  tm_rgb(r = 4, g = 3, b = 2)
+
+tm_shape(L7) +
+  tm_rgb(r = 5, g = 4, b = 2)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
